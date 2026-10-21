@@ -34,10 +34,47 @@ from datetime import datetime, timedelta
 ODP_COLUMNS = ["ODQ_CHANGEMODE", "ODQ_ENTITYCNTR", "EXTRACT_TS"]
 
 COLUMNS: dict[str, list[str]] = {
-    "KNA1": ["KUNNR", "NAME1", "ORT01", "REGIO", "LAND1", "KTOKD", "ERDAT", *ODP_COLUMNS],
-    "MARA": ["MATNR", "MAKTX", "MTART", "MATKL", "MEINS", "BRGEW", "ERSDA", *ODP_COLUMNS],
-    "VBAK": ["VBELN", "AUART", "VKORG", "KUNNR", "ERDAT", "ERZET", "WAERK", *ODP_COLUMNS],
-    "VBAP": ["VBELN", "POSNR", "MATNR", "WERKS", "KWMENG", "VRKME", "NETWR", "WAERK", *ODP_COLUMNS],
+    "KNA1": [
+        "KUNNR",
+        "NAME1",
+        "ORT01",
+        "REGIO",
+        "LAND1",
+        "KTOKD",
+        "ERDAT",
+        *ODP_COLUMNS,
+    ],
+    "MARA": [
+        "MATNR",
+        "MAKTX",
+        "MTART",
+        "MATKL",
+        "MEINS",
+        "BRGEW",
+        "ERSDA",
+        *ODP_COLUMNS,
+    ],
+    "VBAK": [
+        "VBELN",
+        "AUART",
+        "VKORG",
+        "KUNNR",
+        "ERDAT",
+        "ERZET",
+        "WAERK",
+        *ODP_COLUMNS,
+    ],
+    "VBAP": [
+        "VBELN",
+        "POSNR",
+        "MATNR",
+        "WERKS",
+        "KWMENG",
+        "VRKME",
+        "NETWR",
+        "WAERK",
+        *ODP_COLUMNS,
+    ],
 }
 
 BASE_DATE = datetime(2026, 1, 1)
@@ -47,13 +84,44 @@ MARKER_DIR = "_batches"
 
 # (city, region code) pairs, Indian states, LAND1 = IN
 CITIES = [
-    ("Mumbai", "MH"), ("Pune", "MH"), ("Nagpur", "MH"), ("Bengaluru", "KA"),
-    ("Mysuru", "KA"), ("Chennai", "TN"), ("Coimbatore", "TN"), ("Hyderabad", "TS"),
-    ("Ahmedabad", "GJ"), ("Surat", "GJ"), ("Delhi", "DL"), ("Kolkata", "WB"),
-    ("Jaipur", "RJ"), ("Lucknow", "UP"), ("Kochi", "KL"),
+    ("Mumbai", "MH"),
+    ("Pune", "MH"),
+    ("Nagpur", "MH"),
+    ("Bengaluru", "KA"),
+    ("Mysuru", "KA"),
+    ("Chennai", "TN"),
+    ("Coimbatore", "TN"),
+    ("Hyderabad", "TS"),
+    ("Ahmedabad", "GJ"),
+    ("Surat", "GJ"),
+    ("Delhi", "DL"),
+    ("Kolkata", "WB"),
+    ("Jaipur", "RJ"),
+    ("Lucknow", "UP"),
+    ("Kochi", "KL"),
 ]
-NAME_PREFIX = ["Shree", "Sai", "Om", "Laxmi", "Ganesh", "Royal", "City", "Metro", "Prime", "Sun"]
-NAME_CORE = ["Traders", "Mart", "Distributors", "Retail", "Foods", "Stores", "Agencies", "Wholesale"]
+NAME_PREFIX = [
+    "Shree",
+    "Sai",
+    "Om",
+    "Laxmi",
+    "Ganesh",
+    "Royal",
+    "City",
+    "Metro",
+    "Prime",
+    "Sun",
+]
+NAME_CORE = [
+    "Traders",
+    "Mart",
+    "Distributors",
+    "Retail",
+    "Foods",
+    "Stores",
+    "Agencies",
+    "Wholesale",
+]
 ACCOUNT_GROUPS = ["Z001", "Z002", "Z003"]  # e.g. key account, retail, distributor
 MATERIAL_TYPES = ["FERT", "HAWA"]  # finished good, trading good
 MATERIAL_GROUPS = {
@@ -187,7 +255,9 @@ def _step(state: _State, batch_id: int) -> dict[str, list[dict]]:
                 continue
             c = dict(state.customers[k])
             if r.random() < 0.6:  # relocation -> history worth keeping (SCD2)
-                c["ORT01"], c["REGIO"] = r.choice([x for x in CITIES if x[0] != c["ORT01"]])
+                c["ORT01"], c["REGIO"] = r.choice(
+                    [x for x in CITIES if x[0] != c["ORT01"]]
+                )
             else:  # reclassification
                 c["KTOKD"] = r.choice([g for g in ACCOUNT_GROUPS if g != c["KTOKD"]])
             state.customers[k] = c
@@ -292,7 +362,9 @@ def _step(state: _State, batch_id: int) -> dict[str, list[dict]]:
     return out
 
 
-def generate_batch(batch_id: int, seed: int = 42, cfg: SimConfig | None = None) -> dict[str, list[dict]]:
+def generate_batch(
+    batch_id: int, seed: int = 42, cfg: SimConfig | None = None
+) -> dict[str, list[dict]]:
     """Return the delta rows for one batch, keyed by SAP table name."""
     if batch_id < 0:
         raise ValueError("batch_id must be >= 0")
@@ -303,7 +375,9 @@ def generate_batch(batch_id: int, seed: int = 42, cfg: SimConfig | None = None) 
     return result
 
 
-def write_batch(batch_id: int, landing_root: str, seed: int = 42, cfg: SimConfig | None = None) -> dict[str, str]:
+def write_batch(
+    batch_id: int, landing_root: str, seed: int = 42, cfg: SimConfig | None = None
+) -> dict[str, str]:
     """Write one batch as CSV files: <landing_root>/<TABLE>/extract_<NNNN>.csv.
 
     Writing the same batch twice produces identical files, so a retried job
@@ -316,7 +390,9 @@ def write_batch(batch_id: int, landing_root: str, seed: int = 42, cfg: SimConfig
         os.makedirs(folder, exist_ok=True)
         path = os.path.join(folder, f"extract_{batch_id:04d}.csv")
         with open(path, "w", newline="", encoding="utf-8") as fh:
-            writer = csv.DictWriter(fh, fieldnames=COLUMNS[table], quoting=csv.QUOTE_MINIMAL)
+            writer = csv.DictWriter(
+                fh, fieldnames=COLUMNS[table], quoting=csv.QUOTE_MINIMAL
+            )
             writer.writeheader()
             writer.writerows(records)
         paths[table] = path
@@ -344,7 +420,7 @@ def next_batch_id(landing_root: str) -> int:
     if not os.path.isdir(folder):
         return 0
     ids = [
-        int(name[len("batch_"):-len(".done")])
+        int(name[len("batch_") : -len(".done")])
         for name in os.listdir(folder)
         if name.startswith("batch_") and name.endswith(".done")
     ]
